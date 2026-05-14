@@ -1,15 +1,90 @@
 /* ============================================================
-   Shadow AI — Injected Styles for Hallucination Highlighting
+   Shadow AI v2 — Injected Styles
+   Pulsing brain indicator, calibrated highlights, reprompt panel
    ============================================================ */
+
+/* --- Pulsing Brain Indicator (above the score badge, bottom-right) --- */
+.shadow-indicator {
+  position: fixed;
+  bottom: 20px;
+  right: 28px;
+  z-index: 100000;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  user-select: none;
+  transition: box-shadow 0.4s ease, background 0.4s ease;
+}
+
+.shadow-indicator-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Idle: barely visible */
+.shadow-indicator-idle {
+  background: rgba(40, 40, 60, 0.5);
+  box-shadow: 0 0 0 0 transparent;
+  opacity: 0.4;
+}
+
+/* Thinking: pulsing blue glow */
+.shadow-indicator-thinking {
+  background: rgba(0, 120, 255, 0.15);
+  box-shadow: 0 0 12px rgba(0, 150, 255, 0.6);
+  opacity: 1;
+  animation: shadow-pulse-blue 1.2s ease-in-out infinite;
+}
+
+@keyframes shadow-pulse-blue {
+  0%, 100% { box-shadow: 0 0 8px rgba(0, 150, 255, 0.4); }
+  50%      { box-shadow: 0 0 20px rgba(0, 150, 255, 0.8); }
+}
+
+/* Trusted: steady green */
+.shadow-indicator-trusted {
+  background: rgba(34, 139, 34, 0.2);
+  box-shadow: 0 0 10px rgba(50, 200, 50, 0.4);
+  opacity: 0.8;
+}
+
+/* Warn: orange glow */
+.shadow-indicator-warn {
+  background: rgba(200, 120, 0, 0.2);
+  box-shadow: 0 0 12px rgba(255, 160, 0, 0.5);
+  opacity: 1;
+  animation: shadow-pulse-orange 1.5s ease-in-out infinite;
+}
+
+@keyframes shadow-pulse-orange {
+  0%, 100% { box-shadow: 0 0 8px rgba(255, 160, 0, 0.3); }
+  50%      { box-shadow: 0 0 18px rgba(255, 160, 0, 0.7); }
+}
+
+/* Danger: red pulse */
+.shadow-indicator-danger {
+  background: rgba(180, 30, 30, 0.25);
+  box-shadow: 0 0 14px rgba(255, 50, 50, 0.6);
+  opacity: 1;
+  animation: shadow-pulse-red 0.9s ease-in-out infinite;
+}
+
+@keyframes shadow-pulse-red {
+  0%, 100% { box-shadow: 0 0 10px rgba(255, 50, 50, 0.4); }
+  50%      { box-shadow: 0 0 22px rgba(255, 50, 50, 0.9); }
+}
 
 /* --- Highlighted Tokens --- */
 .shadow-highlight-danger {
-  background: linear-gradient(135deg, rgba(255, 50, 50, 0.25), rgba(255, 80, 80, 0.15));
+  background: linear-gradient(135deg, rgba(255, 50, 50, 0.22), rgba(255, 80, 80, 0.12));
   border-bottom: 2px solid #ff3333;
   padding: 1px 3px;
   border-radius: 3px;
   cursor: help;
-  position: relative;
   transition: background 0.2s ease;
 }
 
@@ -18,7 +93,7 @@
 }
 
 .shadow-highlight-warn {
-  background: linear-gradient(135deg, rgba(255, 180, 0, 0.2), rgba(255, 200, 50, 0.1));
+  background: linear-gradient(135deg, rgba(255, 180, 0, 0.18), rgba(255, 200, 50, 0.08));
   border-bottom: 2px solid #ffb400;
   padding: 1px 3px;
   border-radius: 3px;
@@ -30,74 +105,40 @@
   background: rgba(255, 180, 0, 0.3);
 }
 
-/* --- Floating Badge --- */
+/* --- Floating Score Badge (bottom-right) --- */
 .shadow-badge {
   position: fixed;
   bottom: 20px;
   right: 20px;
   z-index: 99999;
-  min-width: 180px;
+  min-width: 200px;
+  max-width: 320px;
   padding: 14px 18px;
   border-radius: 14px;
   font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
   color: #fff;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   animation: shadow-badge-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
+  max-height: 80vh;
+  overflow-y: auto;
 }
 
 @keyframes shadow-badge-slide-in {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
 }
 
-.shadow-badge-trusted {
-  background: linear-gradient(135deg, rgba(34, 139, 34, 0.85), rgba(0, 100, 0, 0.9));
-  border: 1px solid rgba(50, 200, 50, 0.3);
-}
+.shadow-badge-trusted  { background: linear-gradient(135deg, rgba(34, 139, 34, 0.88), rgba(0, 100, 0, 0.92)); border: 1px solid rgba(50, 200, 50, 0.3); }
+.shadow-badge-caution  { background: linear-gradient(135deg, rgba(180, 120, 0, 0.88), rgba(150, 100, 0, 0.92)); border: 1px solid rgba(255, 200, 50, 0.3); }
+.shadow-badge-warn     { background: linear-gradient(135deg, rgba(200, 100, 0, 0.88), rgba(180, 80, 0, 0.92)); border: 1px solid rgba(255, 150, 0, 0.3); }
+.shadow-badge-danger   { background: linear-gradient(135deg, rgba(180, 30, 30, 0.88), rgba(150, 0, 0, 0.92)); border: 1px solid rgba(255, 50, 50, 0.3); }
 
-.shadow-badge-caution {
-  background: linear-gradient(135deg, rgba(180, 120, 0, 0.85), rgba(150, 100, 0, 0.9));
-  border: 1px solid rgba(255, 200, 50, 0.3);
-}
-
-.shadow-badge-warn {
-  background: linear-gradient(135deg, rgba(200, 100, 0, 0.85), rgba(180, 80, 0, 0.9));
-  border: 1px solid rgba(255, 150, 0, 0.3);
-}
-
-.shadow-badge-danger {
-  background: linear-gradient(135deg, rgba(180, 30, 30, 0.85), rgba(150, 0, 0, 0.9));
-  border: 1px solid rgba(255, 50, 50, 0.3);
-}
-
-.shadow-badge-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-
-.shadow-badge-emoji {
-  font-size: 18px;
-}
-
-.shadow-badge-title {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  opacity: 0.8;
-  flex: 1;
-}
+.shadow-badge-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.shadow-badge-emoji  { font-size: 18px; }
+.shadow-badge-title  { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; flex: 1; }
 
 .shadow-badge-close {
   background: none;
@@ -109,27 +150,58 @@
   line-height: 1;
   transition: color 0.2s;
 }
+.shadow-badge-close:hover { color: #fff; }
 
-.shadow-badge-close:hover {
-  color: #fff;
+.shadow-badge-score   { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; line-height: 1; }
+.shadow-badge-verdict { font-size: 13px; font-weight: 600; margin-top: 4px; opacity: 0.9; }
+.shadow-badge-details { font-size: 11px; opacity: 0.6; margin-top: 6px; }
+
+/* --- Reprompt Suggestions Panel --- */
+.shadow-badge-suggestions {
+  margin-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding-top: 10px;
 }
 
-.shadow-badge-score {
-  font-size: 28px;
+.shadow-suggestion {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+}
+
+.shadow-suggestion:last-child { margin-bottom: 0; }
+
+.shadow-suggestion-type {
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: -0.5px;
-  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  opacity: 0.7;
+  margin-bottom: 3px;
 }
 
-.shadow-badge-verdict {
-  font-size: 13px;
-  font-weight: 600;
-  margin-top: 4px;
-  opacity: 0.9;
-}
-
-.shadow-badge-details {
+.shadow-suggestion-msg {
   font-size: 11px;
-  opacity: 0.6;
-  margin-top: 6px;
+  line-height: 1.4;
+  opacity: 0.85;
+  margin-bottom: 6px;
+}
+
+.shadow-suggestion-copy {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+  text-align: center;
+}
+
+.shadow-suggestion-copy:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
 }

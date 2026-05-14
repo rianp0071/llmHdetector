@@ -1,18 +1,18 @@
 """
-FastAPI Backend for the Hallucination Detector Chrome Extension.
-Run with:  uvicorn app:app --reload --host 0.0.0.0 --port 8000
+FastAPI Backend v2 for the Hallucination Detector Chrome Extension.
+Run with:  python -m uvicorn app:app --host 0.0.0.0 --port 8000
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # Import our Shadow AI engine (model loads on first import)
-from shadow_detector import full_analysis, analyze_conflict, analyze_existing_response
+from shadow_detector import full_analysis, analyze_conflict
 
 app = FastAPI(
-    title="Shadow AI - Hallucination Detector",
-    description="Analyzes AI-generated text for hallucinations using mechanistic interpretability.",
-    version="1.0.0",
+    title="Shadow AI - Hallucination Detector v2",
+    description="Calibrated hallucination analysis using Z-Score entropy and multi-factor scoring.",
+    version="2.0.0",
 )
 
 # Allow the Chrome extension to call our API from any origin
@@ -31,32 +31,23 @@ class AnalysisRequest(BaseModel):
     response: str
 
 
-class HealthResponse(BaseModel):
-    status: str
-    model: str
-    message: str
-
-
 # --- Endpoints ---
-@app.get("/health", response_model=HealthResponse)
+@app.get("/health")
 async def health_check():
     """Check if the Shadow AI server is running and the model is loaded."""
     return {
         "status": "online",
         "model": "Qwen1.5-0.5B-Chat",
-        "message": "Shadow AI is ready to analyze.",
+        "version": "2.0.0",
+        "message": "Shadow AI v2 (Calibrated) is ready.",
     }
 
 
 @app.post("/analyze")
 async def analyze(data: AnalysisRequest):
     """
-    Main endpoint. Runs the full hallucination analysis pipeline:
-    - Attention-based influence tracking
-    - Entropy (confusion) measurement
-    - Conflict scoring (Shadow vs. External AI)
-    - Logit divergence detection
-    Returns a combined report with an overall hallucination score (0-100).
+    Full calibrated analysis. Uses Z-Score entropy, multi-factor conflict scoring,
+    and reprompt suggestion engine. Returns overall score, per-token data, and suggestions.
     """
     report = full_analysis(data.prompt, data.response)
     return report
@@ -65,8 +56,7 @@ async def analyze(data: AnalysisRequest):
 @app.post("/quick-check")
 async def quick_check(data: AnalysisRequest):
     """
-    Lightweight endpoint that only returns the conflict scores per token.
-    Use this for real-time streaming analysis where speed matters.
+    Lightweight conflict-only check. Use for real-time streaming where speed matters.
     """
     conflict_report = analyze_conflict(data.prompt, data.response)
 

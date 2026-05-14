@@ -1,20 +1,21 @@
 /**
- * Shadow AI — Content Script
+ * Shadow AI v2 — Content Script
  * 
- * This script runs directly on gemini.google.com and chatgpt.com.
- * It watches for AI responses, grabs the text, sends it to our local
- * Python FastAPI server, and highlights hallucinated tokens in-place.
+ * Runs on gemini.google.com and chatgpt.com.
+ * Watches for AI responses, sends them through the background worker
+ * (bypassing CSP), and highlights hallucinated tokens with reprompt suggestions.
+ * 
+ * v2: Pulsing brain indicator, debounced analysis, reprompt suggestion panel.
  */
 
-const SHADOW_API = "http://localhost:8000";
-const ANALYSIS_DEBOUNCE_MS = 2000; // Wait 2 seconds after the AI stops typing
+const DEBOUNCE_MS = 1500; // Wait 1.5s after AI stops typing before analyzing
 
-let lastAnalyzedText = "";
+let lastAnalyzedFingerprint = "";
 let debounceTimer = null;
 let isAnalyzing = false;
 
 // ---------------------------------------------------------------------------
-// 1. DETECT WHICH SITE WE ARE ON
+// 1. SITE DETECTION
 // ---------------------------------------------------------------------------
 function detectSite() {
   const host = window.location.hostname;
@@ -24,30 +25,23 @@ function detectSite() {
 }
 
 // ---------------------------------------------------------------------------
-// 2. SCRAPE THE PROMPT (what the user typed)
+// 2. SCRAPE USER PROMPT
 // ---------------------------------------------------------------------------
 function scrapeUserPrompt() {
   const site = detectSite();
 
   if (site === "gemini") {
-    // Gemini: user messages are in elements with data-message-author-role="user"
     const userMsgs = document.querySelectorAll(
       '[data-message-author-role="user"], .user-query-text, .query-text'
     );
-    if (userMsgs.length > 0) {
-      return userMsgs[userMsgs.length - 1].innerText.trim();
-    }
-    // Fallback: grab the input textarea
+    if (userMsgs.length > 0) return userMsgs[userMsgs.length - 1].innerText.trim();
     const textarea = document.querySelector('textarea, [contenteditable="true"]');
     return textarea ? textarea.innerText.trim() : "";
   }
 
   if (site === "chatgpt") {
-    // ChatGPT: user messages have data-message-author-role="user"
     const userMsgs = document.querySelectorAll('[data-message-author-role="user"]');
-    if (userMsgs.length > 0) {
-      return userMsgs[userMsgs.length - 1].innerText.trim();
-    }
+    if (userMsgs.length > 0) return userMsgs[userMsgs.length - 1].innerText.trim();
     return "";
   }
 
@@ -55,33 +49,24 @@ function scrapeUserPrompt() {
 }
 
 // ---------------------------------------------------------------------------
-// 3. SCRAPE THE AI RESPONSE (what Gemini/ChatGPT wrote)
+// 3. SCRAPE AI RESPONSE
 // ---------------------------------------------------------------------------
 function scrapeAIResponse() {
   const site = detectSite();
 
   if (site === "gemini") {
-    // Gemini: model responses are in elements with data-message-author-role="model"
     const modelMsgs = document.querySelectorAll(
       '[data-message-author-role="model"], .model-response-text, .response-text'
     );
-    if (modelMsgs.length > 0) {
-      return modelMsgs[modelMsgs.length - 1].innerText.trim();
-    }
-    // Fallback: grab the last message-content
+    if (modelMsgs.length > 0) return modelMsgs[modelMsgs.length - 1].innerText.trim();
     const responses = document.querySelectorAll('.message-content, .markdown');
-    if (responses.length > 0) {
-      return responses[responses.length - 1].innerText.trim();
-    }
+    if (responses.length > 0) return responses[responses.length - 1].innerText.trim();
     return "";
   }
 
   if (site === "chatgpt") {
-    // ChatGPT: assistant messages have data-message-author-role="assistant"
     const assistantMsgs = document.querySelectorAll('[data-message-author-role="assistant"]');
-    if (assistantMsgs.length > 0) {
-      return assistantMsgs[assistantMsgs.length - 1].innerText.trim();
-    }
+    if (assistantMsgs.length > 0) return assistantMsgs[assistantMsgs.length - 1].innerText.trim();
     return "";
   }
 
@@ -89,7 +74,7 @@ function scrapeAIResponse() {
 }
 
 // ---------------------------------------------------------------------------
-// 4. GET THE RESPONSE ELEMENT (to inject highlights into)
+// 4. GET THE RESPONSE DOM ELEMENT (for injecting highlights)
 // ---------------------------------------------------------------------------
 function getResponseElement() {
   const site = detectSite();
@@ -99,7 +84,6 @@ function getResponseElement() {
       '[data-message-author-role="model"], .model-response-text, .response-text'
     );
     if (modelMsgs.length > 0) return modelMsgs[modelMsgs.length - 1];
-
     const responses = document.querySelectorAll('.message-content, .markdown');
     if (responses.length > 0) return responses[responses.length - 1];
     return null;
@@ -115,33 +99,59 @@ function getResponseElement() {
 }
 
 // ---------------------------------------------------------------------------
-// 5. CALL THE SHADOW AI API
+// 5. PULSING BRAIN INDICATOR — subtle, non-annoying status
 // ---------------------------------------------------------------------------
-async function callShadowAPI(prompt, response) {
-  try {
-    const res = await fetch(`${SHADOW_API}/analyze`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, response }),
-    });
+function injectIndicator() {
+  if (document.getElementById("shadow-indicator")) return;
 
-    if (!res.ok) {
-      console.warn("[Shadow AI] API returned status:", res.status);
-      return null;
-    }
+  const indicator = document.createElement("div");
+  indicator.id = "shadow-indicator";
+  indicator.className = "shadow-indicator shadow-indicator-idle";
+  indicator.innerHTML = `<span class="shadow-indicator-icon">🧠</span>`;
+  indicator.title = "Shadow AI — Idle";
+  document.body.appendChild(indicator);
+}
 
-    return await res.json();
-  } catch (err) {
-    console.warn("[Shadow AI] Could not reach local server:", err.message);
-    return null;
+function setIndicatorState(state) {
+  const el = document.getElementById("shadow-indicator");
+  if (!el) return;
+
+  // Remove all state classes
+  el.classList.remove(
+    "shadow-indicator-idle",
+    "shadow-indicator-thinking",
+    "shadow-indicator-trusted",
+    "shadow-indicator-warn",
+    "shadow-indicator-danger"
+  );
+
+  switch (state) {
+    case "thinking":
+      el.classList.add("shadow-indicator-thinking");
+      el.title = "Shadow AI — Analyzing...";
+      break;
+    case "trusted":
+      el.classList.add("shadow-indicator-trusted");
+      el.title = "Shadow AI — Response looks trusted";
+      break;
+    case "warn":
+      el.classList.add("shadow-indicator-warn");
+      el.title = "Shadow AI — Potential drift detected";
+      break;
+    case "danger":
+      el.classList.add("shadow-indicator-danger");
+      el.title = "Shadow AI — Hallucination detected!";
+      break;
+    default:
+      el.classList.add("shadow-indicator-idle");
+      el.title = "Shadow AI — Idle";
   }
 }
 
 // ---------------------------------------------------------------------------
-// 6. INJECT THE FLOATING BADGE (shows the overall score)
+// 6. SCORE BADGE (appears after analysis)
 // ---------------------------------------------------------------------------
 function injectBadge(report) {
-  // Remove old badge if exists
   const old = document.getElementById("shadow-ai-badge");
   if (old) old.remove();
 
@@ -162,73 +172,129 @@ function injectBadge(report) {
   }
 
   badge.className = `shadow-badge ${badgeClass}`;
-  badge.innerHTML = `
-    <div class="shadow-badge-header">
-      <span class="shadow-badge-emoji">${emoji}</span>
-      <span class="shadow-badge-title">Shadow AI</span>
-      <button class="shadow-badge-close" id="shadow-badge-close">×</button>
-    </div>
-    <div class="shadow-badge-score">${report.overall_score}/100</div>
-    <div class="shadow-badge-verdict">${report.verdict}</div>
-    <div class="shadow-badge-details">
-      ${report.high_conflict_tokens}/${report.total_tokens} tokens flagged
-    </div>
-  `;
+
+  const header = document.createElement("div");
+  header.className = "shadow-badge-header";
+  
+  const emojiSpan = document.createElement("span");
+  emojiSpan.className = "shadow-badge-emoji";
+  emojiSpan.textContent = emoji;
+  
+  const titleSpan = document.createElement("span");
+  titleSpan.className = "shadow-badge-title";
+  titleSpan.textContent = "Shadow AI";
+  
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "shadow-badge-close";
+  closeBtn.id = "shadow-badge-close";
+  closeBtn.textContent = "×";
+  closeBtn.addEventListener("click", () => badge.remove());
+  
+  header.appendChild(emojiSpan);
+  header.appendChild(titleSpan);
+  header.appendChild(closeBtn);
+  badge.appendChild(header);
+
+  const scoreDiv = document.createElement("div");
+  scoreDiv.className = "shadow-badge-score";
+  scoreDiv.textContent = `${report.overall_score}/100`;
+  badge.appendChild(scoreDiv);
+
+  const verdictDiv = document.createElement("div");
+  verdictDiv.className = "shadow-badge-verdict";
+  verdictDiv.textContent = report.verdict;
+  badge.appendChild(verdictDiv);
+
+  const detailsDiv = document.createElement("div");
+  detailsDiv.className = "shadow-badge-details";
+  detailsDiv.textContent = `${report.high_conflict_tokens}/${report.total_tokens} tokens flagged`;
+  badge.appendChild(detailsDiv);
+
+  if (report.suggestions && report.suggestions.length > 0) {
+    const suggContainer = document.createElement("div");
+    suggContainer.className = "shadow-badge-suggestions";
+    
+    for (const s of report.suggestions) {
+      const sDiv = document.createElement("div");
+      sDiv.className = "shadow-suggestion";
+      
+      const sType = document.createElement("div");
+      sType.className = "shadow-suggestion-type";
+      sType.textContent = s.type;
+      
+      const sMsg = document.createElement("div");
+      sMsg.className = "shadow-suggestion-msg";
+      sMsg.textContent = s.message;
+      
+      const sBtn = document.createElement("button");
+      sBtn.className = "shadow-suggestion-copy";
+      sBtn.textContent = "📋 Copy reprompt";
+      sBtn.dataset.reprompt = s.reprompt;
+      
+      sBtn.addEventListener("click", () => {
+        const text = sBtn.dataset.reprompt;
+        navigator.clipboard.writeText(text).then(() => {
+          sBtn.textContent = "✅ Copied!";
+          setTimeout(() => { sBtn.textContent = "📋 Copy reprompt"; }, 2000);
+        });
+      });
+      
+      sDiv.appendChild(sType);
+      sDiv.appendChild(sMsg);
+      sDiv.appendChild(sBtn);
+      suggContainer.appendChild(sDiv);
+    }
+    badge.appendChild(suggContainer);
+  }
 
   document.body.appendChild(badge);
 
-  // Close button
-  document.getElementById("shadow-badge-close").addEventListener("click", () => {
-    badge.remove();
-  });
+  // Move brain indicator above the badge
+  const indicator = document.getElementById("shadow-indicator");
+  if (indicator) {
+    const badgeHeight = badge.offsetHeight;
+    indicator.style.bottom = (badgeHeight + 30) + "px";
+  }
 }
 
 // ---------------------------------------------------------------------------
-// 7. HIGHLIGHT FLAGGED TOKENS IN THE RESPONSE
+// 7. HIGHLIGHT FLAGGED TOKENS
 // ---------------------------------------------------------------------------
 function highlightTokens(report) {
   const responseEl = getResponseElement();
   if (!responseEl) return;
 
-  // Build a map of flagged words for quick lookup
   const flaggedWords = new Map();
   for (const token of report.tokens) {
     const word = token.token.trim();
-    if (!word) continue;
+    if (!word || word.length < 2) continue;
 
     if (token.conflict_status === "HIGH_CONFLICT") {
       flaggedWords.set(word, {
         class: "shadow-highlight-danger",
-        title: `Conflict: ${(token.conflict_score * 100).toFixed(0)}% | Shadow expected: "${token.shadow_preferred}"`,
+        title: `⚠️ Conflict: ${(token.conflict_score * 100).toFixed(0)}% | Z-Score: ${token.entropy_z_score} | Shadow expected: "${token.shadow_preferred}"`,
       });
-    } else if (token.conflict_status === "WARN" || token.is_diverging) {
+    } else if (token.conflict_status === "WARN") {
       flaggedWords.set(word, {
         class: "shadow-highlight-warn",
-        title: `Conflict: ${(token.conflict_score * 100).toFixed(0)}% | Shadow expected: "${token.shadow_preferred}"`,
+        title: `Drift: ${(token.conflict_score * 100).toFixed(0)}% conflict | Shadow expected: "${token.shadow_preferred}"`,
       });
     }
   }
 
   if (flaggedWords.size === 0) return;
 
-  // Walk through the text nodes and wrap flagged words in <span> elements
   const walker = document.createTreeWalker(responseEl, NodeFilter.SHOW_TEXT, null, false);
   const nodesToReplace = [];
 
   while (walker.nextNode()) {
     const textNode = walker.currentNode;
     const text = textNode.textContent;
-
-    let hasMatch = false;
     for (const [word] of flaggedWords) {
       if (text.includes(word)) {
-        hasMatch = true;
+        nodesToReplace.push(textNode);
         break;
       }
-    }
-
-    if (hasMatch) {
-      nodesToReplace.push(textNode);
     }
   }
 
@@ -237,36 +303,30 @@ function highlightTokens(report) {
     let remaining = textNode.textContent;
 
     while (remaining.length > 0) {
-      let earliestMatch = null;
       let earliestIndex = Infinity;
+      let earliestInfo = null;
       let matchedWord = null;
 
-      // Find the earliest flagged word in the remaining text
       for (const [word, info] of flaggedWords) {
         const idx = remaining.indexOf(word);
         if (idx !== -1 && idx < earliestIndex) {
           earliestIndex = idx;
-          earliestMatch = info;
+          earliestInfo = info;
           matchedWord = word;
         }
       }
 
-      if (earliestMatch && matchedWord) {
-        // Add text before the match
+      if (earliestInfo && matchedWord) {
         if (earliestIndex > 0) {
           fragment.appendChild(document.createTextNode(remaining.substring(0, earliestIndex)));
         }
-
-        // Add the highlighted word
         const span = document.createElement("span");
-        span.className = earliestMatch.class;
-        span.title = earliestMatch.title;
+        span.className = earliestInfo.class;
+        span.title = earliestInfo.title;
         span.textContent = matchedWord;
         fragment.appendChild(span);
-
         remaining = remaining.substring(earliestIndex + matchedWord.length);
       } else {
-        // No more matches; add the rest as plain text
         fragment.appendChild(document.createTextNode(remaining));
         break;
       }
@@ -277,7 +337,7 @@ function highlightTokens(report) {
 }
 
 // ---------------------------------------------------------------------------
-// 8. MAIN ANALYSIS LOOP — triggered when the AI finishes responding
+// 8. MAIN ANALYSIS — routes through background worker (CSP bypass)
 // ---------------------------------------------------------------------------
 async function runAnalysis() {
   if (isAnalyzing) return;
@@ -285,66 +345,86 @@ async function runAnalysis() {
   const prompt = scrapeUserPrompt();
   const response = scrapeAIResponse();
 
-  if (!prompt || !response) {
-    console.log("[Shadow AI] No prompt or response found yet.");
-    return;
-  }
+  if (!prompt || !response || response.length < 10) return;
 
-  // Don't re-analyze the same text
   const fingerprint = prompt + "|" + response;
-  if (fingerprint === lastAnalyzedText) return;
+  if (fingerprint === lastAnalyzedFingerprint) return;
 
   isAnalyzing = true;
-  console.log("[Shadow AI] Analyzing response...");
-  console.log("[Shadow AI] Prompt:", prompt.substring(0, 80) + "...");
-  console.log("[Shadow AI] Response:", response.substring(0, 80) + "...");
+  setIndicatorState("thinking");
 
-  const report = await callShadowAPI(prompt, response);
+  console.log("[Shadow AI] Sending to background worker for analysis...");
 
-  if (report) {
-    lastAnalyzedText = fingerprint;
-    console.log(`[Shadow AI] Score: ${report.overall_score}/100 — ${report.verdict}`);
+  // Route through background.js to bypass Gemini's CSP
+  chrome.runtime.sendMessage(
+    { action: "analyze", prompt, response },
+    (result) => {
+      isAnalyzing = false;
 
-    injectBadge(report);
-    highlightTokens(report);
-  } else {
-    console.warn("[Shadow AI] No report received. Is the server running?");
-  }
+      if (chrome.runtime.lastError) {
+        console.warn("[Shadow AI] Background worker error:", chrome.runtime.lastError.message);
+        setIndicatorState("idle");
+        return;
+      }
 
-  isAnalyzing = false;
+      if (result && result.success) {
+        lastAnalyzedFingerprint = fingerprint;
+        const report = result.report;
+        console.log(`[Shadow AI] Score: ${report.overall_score}/100 — ${report.verdict}`);
+
+        // Set indicator color
+        if (report.overall_score > 60) {
+          setIndicatorState("danger");
+        } else if (report.overall_score > 35) {
+          setIndicatorState("warn");
+        } else {
+          setIndicatorState("trusted");
+        }
+
+        // Only show popup badge if suspicious (score > 15)
+        if (report.overall_score > 15) {
+          injectBadge(report);
+        } else {
+          // If trusted, clear any existing badge
+          const old = document.getElementById("shadow-ai-badge");
+          if (old) old.remove();
+        }
+        highlightTokens(report);
+      } else {
+        console.warn("[Shadow AI] Analysis failed:", result?.error);
+        setIndicatorState("idle");
+      }
+    }
+  );
 }
 
 // ---------------------------------------------------------------------------
-// 9. MUTATION OBSERVER — watch for new AI responses appearing in the DOM
+// 9. MUTATION OBSERVER — debounced watching for new responses
 // ---------------------------------------------------------------------------
 function startObserver() {
   const observer = new MutationObserver(() => {
-    // Debounce: wait for the AI to finish typing
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       runAnalysis();
-    }, ANALYSIS_DEBOUNCE_MS);
+    }, DEBOUNCE_MS);
   });
 
-  // Watch the entire body for new child elements (messages being added)
   observer.observe(document.body, {
     childList: true,
     subtree: true,
     characterData: true,
   });
 
-  console.log(`[Shadow AI] Content script loaded on ${detectSite()}. Watching for responses...`);
+  console.log(`[Shadow AI v2] Loaded on ${detectSite()}. Watching for responses...`);
 }
 
 // ---------------------------------------------------------------------------
-// 10. LISTEN FOR MESSAGES FROM THE POPUP
+// 10. LISTEN FOR MESSAGES FROM POPUP
 // ---------------------------------------------------------------------------
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "analyze_now") {
-    runAnalysis().then(() => {
-      sendResponse({ status: "done" });
-    });
-    return true; // Keep the message channel open for async response
+    runAnalysis();
+    sendResponse({ status: "triggered" });
   }
 
   if (message.action === "get_status") {
@@ -352,7 +432,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       site: detectSite(),
       hasPrompt: !!scrapeUserPrompt(),
       hasResponse: !!scrapeAIResponse(),
-      lastAnalyzed: lastAnalyzedText ? true : false,
+      isAnalyzing: isAnalyzing,
     });
   }
 });
@@ -360,4 +440,5 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // ---------------------------------------------------------------------------
 // INIT
 // ---------------------------------------------------------------------------
+injectIndicator();
 startObserver();

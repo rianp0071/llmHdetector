@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    
+
     body {
       width: 320px;
       min-height: 200px;
@@ -30,9 +30,7 @@
       background-clip: text;
     }
 
-    .header .logo {
-      font-size: 24px;
-    }
+    .header .logo { font-size: 24px; }
 
     .status-card {
       background: rgba(255, 255, 255, 0.05);
@@ -48,7 +46,6 @@
       align-items: center;
       margin-bottom: 8px;
     }
-
     .status-row:last-child { margin-bottom: 0; }
 
     .status-label {
@@ -58,13 +55,19 @@
       letter-spacing: 0.5px;
     }
 
-    .status-value {
-      font-size: 12px;
-      font-weight: 600;
-    }
-
+    .status-value { font-size: 12px; font-weight: 600; }
     .status-online { color: #4cff9f; }
     .status-offline { color: #ff4c4c; }
+
+    .version-tag {
+      display: inline-block;
+      background: rgba(123, 47, 247, 0.2);
+      color: #b38dff;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
 
     .btn {
       width: 100%;
@@ -82,28 +85,15 @@
       background: linear-gradient(135deg, #7b2ff7, #00d2ff);
       color: #fff;
     }
-
     .btn-primary:hover {
       transform: translateY(-1px);
       box-shadow: 0 4px 16px rgba(123, 47, 247, 0.4);
     }
-
     .btn-primary:disabled {
       opacity: 0.5;
       cursor: not-allowed;
       transform: none;
       box-shadow: none;
-    }
-
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.06);
-      color: #aaa;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: #e0e0e0;
     }
 
     .footer {
@@ -126,7 +116,6 @@
       border: 1px solid rgba(76, 255, 159, 0.2);
       color: #4cff9f;
     }
-
     .result-error {
       background: rgba(255, 76, 76, 0.1);
       border: 1px solid rgba(255, 76, 76, 0.2);
@@ -136,7 +125,7 @@
 </head>
 <body>
   <div class="header">
-    <span class="logo">🔍</span>
+    <span class="logo">🧠</span>
     <h1>Shadow AI Detector</h1>
   </div>
 
@@ -150,6 +139,10 @@
       <span class="status-value" id="model-name">—</span>
     </div>
     <div class="status-row">
+      <span class="status-label">Version</span>
+      <span class="status-value"><span class="version-tag" id="version-info">—</span></span>
+    </div>
+    <div class="status-row">
       <span class="status-label">Site</span>
       <span class="status-value" id="site-name">—</span>
     </div>
@@ -158,7 +151,7 @@
   <button class="btn btn-primary" id="analyze-btn" disabled>Analyze Current Response</button>
   <div id="analyze-result"></div>
 
-  <div class="footer">Shadow AI v1.0 — Hallucination Detector</div>
+  <div class="footer">Shadow AI v2 — Calibrated Hallucination Detector</div>
 
   <script src="popup.js"></script>
 </body>
