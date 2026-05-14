@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      width: 320px;
+      min-height: 200px;
+      font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+      background: linear-gradient(165deg, #0d0d1a 0%, #1a1a2e 50%, #16213e 100%);
+      color: #e0e0e0;
+      padding: 20px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .header h1 {
+      font-size: 16px;
+      font-weight: 700;
+      background: linear-gradient(90deg, #00d2ff, #7b2ff7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header .logo {
+      font-size: 24px;
+    }
+
+    .status-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .status-row:last-child { margin-bottom: 0; }
+
+    .status-label {
+      font-size: 12px;
+      opacity: 0.6;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-value {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-online { color: #4cff9f; }
+    .status-offline { color: #ff4c4c; }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #7b2ff7, #00d2ff);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(123, 47, 247, 0.4);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: #aaa;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #e0e0e0;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 10px;
+      opacity: 0.3;
+      margin-top: 12px;
+    }
+
+    #analyze-result {
+      font-size: 12px;
+      margin-top: 8px;
+      padding: 10px;
+      border-radius: 8px;
+      display: none;
+    }
+
+    .result-success {
+      background: rgba(76, 255, 159, 0.1);
+      border: 1px solid rgba(76, 255, 159, 0.2);
+      color: #4cff9f;
+    }
+
+    .result-error {
+      background: rgba(255, 76, 76, 0.1);
+      border: 1px solid rgba(255, 76, 76, 0.2);
+      color: #ff4c4c;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="logo">🔍</span>
+    <h1>Shadow AI Detector</h1>
+  </div>
+
+  <div class="status-card">
+    <div class="status-row">
+      <span class="status-label">Server</span>
+      <span class="status-value" id="server-status">Checking...</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Model</span>
+      <span class="status-value" id="model-name">—</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Site</span>
+      <span class="status-value" id="site-name">—</span>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="analyze-btn" disabled>Analyze Current Response</button>
+  <div id="analyze-result"></div>
+
+  <div class="footer">Shadow AI v1.0 — Hallucination Detector</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

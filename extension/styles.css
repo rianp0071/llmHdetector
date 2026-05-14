@@ -1,0 +1,135 @@
+/* ============================================================
+   Shadow AI — Injected Styles for Hallucination Highlighting
+   ============================================================ */
+
+/* --- Highlighted Tokens --- */
+.shadow-highlight-danger {
+  background: linear-gradient(135deg, rgba(255, 50, 50, 0.25), rgba(255, 80, 80, 0.15));
+  border-bottom: 2px solid #ff3333;
+  padding: 1px 3px;
+  border-radius: 3px;
+  cursor: help;
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.shadow-highlight-danger:hover {
+  background: rgba(255, 50, 50, 0.35);
+}
+
+.shadow-highlight-warn {
+  background: linear-gradient(135deg, rgba(255, 180, 0, 0.2), rgba(255, 200, 50, 0.1));
+  border-bottom: 2px solid #ffb400;
+  padding: 1px 3px;
+  border-radius: 3px;
+  cursor: help;
+  transition: background 0.2s ease;
+}
+
+.shadow-highlight-warn:hover {
+  background: rgba(255, 180, 0, 0.3);
+}
+
+/* --- Floating Badge --- */
+.shadow-badge {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 99999;
+  min-width: 180px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+  color: #fff;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: shadow-badge-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+@keyframes shadow-badge-slide-in {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.shadow-badge-trusted {
+  background: linear-gradient(135deg, rgba(34, 139, 34, 0.85), rgba(0, 100, 0, 0.9));
+  border: 1px solid rgba(50, 200, 50, 0.3);
+}
+
+.shadow-badge-caution {
+  background: linear-gradient(135deg, rgba(180, 120, 0, 0.85), rgba(150, 100, 0, 0.9));
+  border: 1px solid rgba(255, 200, 50, 0.3);
+}
+
+.shadow-badge-warn {
+  background: linear-gradient(135deg, rgba(200, 100, 0, 0.85), rgba(180, 80, 0, 0.9));
+  border: 1px solid rgba(255, 150, 0, 0.3);
+}
+
+.shadow-badge-danger {
+  background: linear-gradient(135deg, rgba(180, 30, 30, 0.85), rgba(150, 0, 0, 0.9));
+  border: 1px solid rgba(255, 50, 50, 0.3);
+}
+
+.shadow-badge-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.shadow-badge-emoji {
+  font-size: 18px;
+}
+
+.shadow-badge-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.8;
+  flex: 1;
+}
+
+.shadow-badge-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.shadow-badge-close:hover {
+  color: #fff;
+}
+
+.shadow-badge-score {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.shadow-badge-verdict {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 4px;
+  opacity: 0.9;
+}
+
+.shadow-badge-details {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-top: 6px;
+}
